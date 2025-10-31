@@ -1,8 +1,23 @@
+"""
+Gaussian energy-based model for continuous gene expression data
+
+Implements a quadratic energy function E(x|p) with learned mean mu(p)
+and symmetric coupling matrix J 
+
+Uses Langevin sampling for inference
+
+Suitable for z-scored continuous expression data, 
+like in the preprocessing script
+"""
 import flax.linen as nn
 import jax.numpy as jnp
 
+
 # Gaussian energy-based model
 class GaussianEBM(nn.Module):
+    """
+    E(x|p) = 0.5 * (x - mu(p))^T * J * (x - mu(p))
+    """
     n_genes: int
     cond_dim: int = 64
 
