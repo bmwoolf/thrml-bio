@@ -1,3 +1,11 @@
+"""
+Training loops and utilities for our models
+
+Implements training functions for Gaussian and Potts EBMs using persistent
+contrastive divergence (PCD), and our PyTorch MLP baseline for comparison
+
+Uses JAX/Flax for training state management and optimizer integration
+"""
 import time, json
 import torch, torch.nn as nn
 import jax, optax, jax.numpy as jnp
@@ -11,12 +19,13 @@ from models.potts import PottsEBM
 from models.sampler import langevin_pcd_apply, potts_gibbs_block
 
 
+# make train state for JAX/Flax
 def make_train_state(rng, model, tx, sample_x, sample_p):
     params = model.init(rng, sample_x, sample_p)['params']
     return TrainState.create(apply_fn=model.apply, params=params, tx=tx)
 
 
-# Gaussian EBM
+# train epoch for Gaussian EBM
 def train_epoch_gaussian(state, enc_apply, enc_params, model, batch_iter, sampler, steps=5, step_size=0.05):
     @jax.jit
     def loss_fn(params, x_pos, p_emb):
@@ -41,7 +50,7 @@ def train_epoch_gaussian(state, enc_apply, enc_params, model, batch_iter, sample
     return state
 
 
-# Potts EBM
+# train epoch for Potts EBM
 def train_epoch_potts(state, enc_apply, enc_params, model, batch_iter, sampler, steps=5, block_size=64):
     """PCD with block Gibbs for Potts x ∈ {-1,0,1}."""
     @jax.jit
@@ -66,6 +75,7 @@ def train_epoch_potts(state, enc_apply, enc_params, model, batch_iter, sampler, 
     return state
 
 
+# predict mean for Gaussian EBM
 def predict_mu(enc_apply, enc_params, model_apply, model_params, p):
     p_emb = enc_apply({'params': enc_params}, **p)
     # TODO: for Gaussian: mu = Dense(p_emb)
@@ -73,7 +83,7 @@ def predict_mu(enc_apply, enc_params, model_apply, model_params, p):
     return p_emb
 
 
-# Torch MLP Baseline (non-EBM)
+# train MLP baseline (non-EBM)
 def train_mlp_baseline(artifacts_dir, epochs=30, batch_size=256, lr=1e-3, balance=False):
     """Train a simple Torch MLP predictor using the same condition encoder."""
     import json
