@@ -1,3 +1,5 @@
+![Banner](assets/github_banner.png)
+
 # thrml-bio
 
 Energy-based modeling on the **Arc Virtual Cell** perturbation dataset, set up to compare a conventional GPU run to an energy-based (thrml) simulator. We train Potts-style/Gaussian EBMs on post-perturbation gene expression and evaluate convergence, accuracy, and efficiency. We also train a standard `torch` MLP on the GPU to test baseline.
