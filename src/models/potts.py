@@ -1,5 +1,14 @@
+"""
+Potts energy-based model for discrete gene expression
+
+Implements a Potts energy function for ternary states {-1, 0, 1},
+representing down-regulated, unchanged, and up-regulated genes respectively
+
+Uses block Gibbs sampling for inference on ternarized data
+"""
 import flax.linen as nn
 import jax.numpy as jnp
+
 
 # Potts energy-based model
 class PottsEBM(nn.Module):
