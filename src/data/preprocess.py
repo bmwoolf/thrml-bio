@@ -1,3 +1,13 @@
+"""
+Data preprocessing pipeline for perturbation experiments
+
+Converts h5ad single-cell RNA-seq data to model-ready tensors
+
+Handles HVG selection, normalization, z-scoring, and optional ternarization
+for Gaussian or Potts models 
+
+Creates train/val/test splits and encodes perturbation conditions
+"""
 import argparse, json
 from pathlib import Path
 import numpy as np
@@ -6,6 +16,8 @@ import scanpy as sc
 import anndata as ad
 import pandas as pd
 
+
+# select highly variable genes
 def select_hvgs(h5ad_path, batch_key="batch", n_top=2000):
     adata = sc.read_h5ad(h5ad_path)  # small full read once for HVG stats
     sc.pp.normalize_total(adata, target_sum=1e4)
@@ -16,6 +28,8 @@ def select_hvgs(h5ad_path, batch_key="batch", n_top=2000):
     hvgs = adata.var_names[adata.var["highly_variable"]].to_list()
     return hvgs
 
+
+# build train/val/test splits
 def build_splits(obs, key="target_gene", seed=1337, val_frac=0.1, test_frac=0.1):
     rng = np.random.default_rng(seed)
     uniq = np.array(sorted(obs[key].astype(str).unique()))
@@ -35,21 +49,29 @@ def build_splits(obs, key="target_gene", seed=1337, val_frac=0.1, test_frac=0.1)
         "seed": seed,
     }
 
+
+# z-score normalization
 def zscore_fit(X):
     mu = X.mean(axis=0)
     sd = X.std(axis=0)
     sd[sd==0] = 1.0
     return mu.astype(np.float32), sd.astype(np.float32)
 
+
+# apply z-score normalization
 def zscore_apply(X, mu, sd):
     return (X - mu) / sd
 
+
+# ternarize for Potts model
 def ternarize(Z, tau=0.8):
     Xp = np.zeros_like(Z, dtype=np.int8)
     Xp[Z >  tau]  =  1
     Xp[Z < -tau]  = -1
     return Xp
 
+
+# main function
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True)                  # path/to/arc.h5ad
@@ -112,7 +134,7 @@ def main():
         "target": obs[args.target_key].astype(str).values,
         "batch":  obs[args.batch_key].astype(str).values if args.batch_key in obs.columns else "NA",
     })
-    # (extend later if you add dose/time/ctype)
+    # (extend later if we add dose/time/cell type)
     cats = {
         "target_vocab": {v:i for i,v in enumerate(sorted(df["target"].unique()))},
         "batch_vocab":  {v:i for i,v in enumerate(sorted(df["batch"].unique()))},
