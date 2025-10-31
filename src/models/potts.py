@@ -15,23 +15,22 @@ class PottsEBM(nn.Module):
     """
     Potts EBM (discrete x_i ∈ {-1, 0, +1}).
 
-    Energy:
+    energy function:
         E_\theta(x | p) = ∑_i h_i^{(p)} x_i  +  1/2 · ∑_{i≠j} J_{ij} x_i x_j
 
-    Where:
+    where:
         x ∈ {-1,0,+1}^G        # ternary gene state per gene (down/neutral/up)
         p                      # condition embedded to f(p)
         h^{(p)} = W · f(p)     # condition-dependent local fields (Dense: cond_dim → G)
         J ∈ ℝ^{G×G}            # learned symmetric pairwise couplings, diag(J)=0
 
-    Notes:
-        • We use the convention above (linear + ½ pairwise term). Some texts flip signs;
-          your sampler/loss must be consistent with this E.
+    notes:
+        • we use the convention above (linear + ½ pairwise term)
         • J is parameterized unconstrained then symmetrized: J ← ½(J + J^T); diag(J)=0.
-        • Sampling for CD uses block Gibbs / coordinate updates based on the local field:
+        • sampling for CD uses block Gibbs/coordinate updates based on the local field:
               ℓ = h^{(p)} + Jx         # [B,G]
           and picks x_i ∈ {-1,0,+1} that minimizes the local contribution.
-        • Defines P_\theta(x|p) ∝ exp(-E_\theta(x|p)).
+        • defines P_\theta(x|p) ∝ exp(-E_\theta(x|p)).
     """
     n_genes: int
     cond_dim: int = 64
