@@ -1,5 +1,12 @@
 """
-Compare preprocessed data with original raw data.
+Data comparison tool- more AI generated than actual just for
+terminal outputs
+
+Displays side-by-side comparisons of original h5ad data with preprocessed
+tensors for both Gaussian and Potts models 
+
+Shows transformation steps, value distributions, 
+and numerical stability improvements
 """
 import torch
 import json
@@ -7,6 +14,8 @@ import scanpy as sc
 import numpy as np
 from pathlib import Path
 
+
+# show comparison
 def show_comparison():
     """Show samples comparing original and preprocessed data."""
     
