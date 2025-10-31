@@ -29,8 +29,8 @@ class PottsEBM(nn.Module):
         • J is parameterized unconstrained then symmetrized: J ← ½(J + J^T); diag(J)=0.
         • sampling for CD uses block Gibbs/coordinate updates based on the local field:
               ℓ = h^{(p)} + Jx         # [B,G]
-          and picks x_i ∈ {-1,0,+1} that minimizes the local contribution.
-        • defines P_\theta(x|p) ∝ exp(-E_\theta(x|p)).
+          and picks x_i ∈ {-1,0,+1} that minimizes the local contribution
+        • defines P_\theta(x|p) ∝ exp(-E_\theta(x|p))
     """
     n_genes: int
     cond_dim: int = 64
