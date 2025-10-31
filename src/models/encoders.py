@@ -1,7 +1,14 @@
+"""
+Perturbation condition encoder for gene expression models
+
+Embeds categorical conditions (target gene, batch) and optional numeric
+features (dose, time) into a fixed-dimensional vector for our models
+"""
 import torch
 import torch.nn as nn
 
 
+# perturbation condition encoder
 class PerturbEncoder(nn.Module):
     """
     f(p): embeds categorical conditions (target, batch) and numeric (dose, time)
