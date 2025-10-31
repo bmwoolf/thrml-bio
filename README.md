@@ -1,4 +1,4 @@
-![Banner](assets/github_banner.png)
+![Banner](assets/branching.png)
 
 # thrml-bio
 
