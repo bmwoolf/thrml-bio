@@ -14,9 +14,10 @@ from flax.training.train_state import TrainState
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from models.encoders import PerturbEncoder
-from models.gaussian import GaussianEBM
+from models.jax.gaussian import GaussianEBM as GaussianEBM_JAX
+from models.jax.potts import PottsEBM as PottsEBM_JAX
+from models.thrml.potts import PottsEBMThrml, thrml_potts_sampler
 from models.mlp import ConditionalMLP
-from models.potts import PottsEBM
 from models.sampler import langevin_pcd_apply, potts_gibbs_block
 
 
@@ -241,33 +242,37 @@ def train_mlp_baseline(artifacts_dir, run_dir, epochs=30, batch_size=256, lr=1e-
 
 if __name__ == "__main__":
     import argparse
-    ap = argparse.ArgumentParser(description="Train energy-based models with benchmarking")
+    ap = argparse.ArgumentParser(description="train energy-based models with benchmarking")
     ap.add_argument("--mode", choices=["gaussian", "potts", "mlp"], required=True,
-                    help="Model type to train")
+                    help="model type to train")
+    ap.add_argument("--backend", choices=["jax", "thrml", "torch"], default="jax",
+                    help="backend: jax (pure JAX/Flax), thrml (thrml library), torch (PyTorch)")
     ap.add_argument("--artifacts", required=True,
-                    help="Path to preprocessed artifacts directory (e.g., artifacts/gaussian)")
+                    help="path to preprocessed artifacts directory (eg artifacts/gaussian)")
     ap.add_argument("--run_dir", required=True,
-                    help="Output directory for this run (e.g., benchmarks/mlp_baseline_gpu)")
+                    help="output directory for this run (eg benchmarks/mlp_baseline_torch)")
     ap.add_argument("--epochs", type=int, default=30,
-                    help="Number of training epochs")
+                    help="number of training epochs")
     ap.add_argument("--batch_size", type=int, default=256,
-                    help="Batch size for training")
+                    help="batch size for training")
     ap.add_argument("--lr", type=float, default=1e-3,
-                    help="Learning rate")
+                    help="learning rate")
     ap.add_argument("--balance", action="store_true",
-                    help="Use balanced sampling for imbalanced datasets")
+                    help="use balanced sampling for imbalanced datasets")
     
     # EBM-specific args
     ap.add_argument("--langevin_steps", type=int, default=5,
-                    help="Number of Langevin/Gibbs steps for EBM sampling")
+                    help="number of Langevin/Gibbs steps for EBM sampling")
     ap.add_argument("--step_size", type=float, default=0.05,
                     help="Langevin step size (for Gaussian EBM)")
     ap.add_argument("--block_size", type=int, default=64,
-                    help="Block size for Gibbs sampling (for Potts EBM)")
+                    help="block size for Gibbs sampling (for Potts EBM)")
     
     args = ap.parse_args()
 
     if args.mode == "mlp":
+        if args.backend != "torch":
+            print(f"warning: MLP only supports torch backend, ignoring --backend={args.backend}")
         train_mlp_baseline(
             artifacts_dir=args.artifacts,
             run_dir=args.run_dir,
@@ -277,10 +282,25 @@ if __name__ == "__main__":
             balance=args.balance
         )
     elif args.mode == "gaussian":
-        # TODO: implement Gaussian EBM training loop with benchmarking
-        print("warning: Gaussian EBM training not yet implemented with benchmarking")
-        print("    use train_epoch_gaussian() as a template")
-    else:
-        # TODO: implement Potts EBM training loop with benchmarking
-        print("warning: Potts EBM training not yet implemented with benchmarking")
-        print("    use train_epoch_potts() as a template")
+        if args.backend == "thrml":
+            print("error: Gaussian EBM only supports JAX backend (thrml is for discrete models)")
+            print("    use --backend jax for Gaussian EBM")
+        else:
+            print("warning: Gaussian EBM (JAX) training not yet fully implemented with benchmarking")
+            print("    model and sampler are ready, need to wire up full training loop")
+            model_class = GaussianEBM_JAX
+            sampler = langevin_pcd_apply
+            # TODO: implement full training loop with benchmarking using train_epoch_gaussian()
+    else:  # potts
+        print(f"warning: Potts EBM ({args.backend}) training not yet fully implemented with benchmarking")
+        print("    model and sampler are ready, need to wire up full training loop")
+        # select model and sampler based on backend
+        if args.backend == "thrml":
+            model_class = PottsEBMThrml
+            sampler = thrml_potts_sampler
+            print("    using thrml Potts EBM with block Gibbs sampler")
+        else:  # jax
+            model_class = PottsEBM_JAX
+            sampler = potts_gibbs_block
+            print("    using JAX Potts EBM with block Gibbs sampler")
+        # TODO: implement full training loop with benchmarking using train_epoch_potts()
