@@ -17,32 +17,30 @@ echo "=========================================="
 # 1 Potts EBM with JAX backend
 echo ""
 echo "[1/3] training Potts EBM (JAX backend)"
-echo "warning: Potts EBM training loop needs full implementation"
-# python src/train.py \
-#     --mode potts \
-#     --backend jax \
-#     --artifacts artifacts/potts \
-#     --run_dir benchmarks/potts_ebm_jax \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --lr $LR \
-#     --gibbs_steps $GIBBS_STEPS \
-#     --block_size $BLOCK_SIZE
+python src/train.py \
+    --mode potts \
+    --backend jax \
+    --artifacts artifacts/potts \
+    --run_dir benchmarks/potts_ebm_jax \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE \
+    --lr $LR \
+    --gibbs_steps $GIBBS_STEPS \
+    --block_size $BLOCK_SIZE
 
 # 2 Potts EBM with thrml backend
 echo ""
 echo "[2/3] training Potts EBM (thrml backend)"
-echo "warning: Potts EBM training loop needs full implementation"
-# python src/train.py \
-#     --mode potts \
-#     --backend thrml \
-#     --artifacts artifacts/potts \
-#     --run_dir benchmarks/potts_ebm_thrml \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --lr $LR \
-#     --gibbs_steps $GIBBS_STEPS \
-#     --block_size $BLOCK_SIZE
+python src/train.py \
+    --mode potts \
+    --backend thrml \
+    --artifacts artifacts/potts \
+    --run_dir benchmarks/potts_ebm_thrml \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE \
+    --lr $LR \
+    --gibbs_steps $GIBBS_STEPS \
+    --block_size $BLOCK_SIZE
 
 # 3 MLP baseline with PyTorch
 echo ""
