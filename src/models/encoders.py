@@ -6,6 +6,8 @@ features (dose, time) into a fixed-dimensional vector for our models
 """
 import torch
 import torch.nn as nn
+import jax.numpy as jnp
+import flax.linen as fnn
 
 
 # perturbation condition encoder
@@ -47,3 +49,33 @@ class PerturbEncoder(nn.Module):
             e.append(torch.stack([dose, time], dim=1))
         h = torch.cat(e, dim=1)
         return self.project(h)  # [B, out_dim]
+
+
+# JAX/Flax version of PerturbEncoder
+class PerturbEncoderJAX(fnn.Module):
+    """
+    JAX/Flax version of perturbation condition encoder
+    
+    Embeds categorical conditions (target gene, batch) into a fixed-dimensional vector
+    """
+    n_targets: int
+    n_batches: int
+    emb_dim_target: int = 64
+    emb_dim_batch: int = 16
+    out_dim: int = 64
+    
+    @fnn.compact
+    def __call__(self, target_id, batch_id):
+        # embeddings
+        target_emb = fnn.Embed(self.n_targets, self.emb_dim_target)(target_id)
+        batch_emb = fnn.Embed(max(self.n_batches, 1), self.emb_dim_batch)(batch_id)
+        
+        # concatenate embeddings
+        h = jnp.concatenate([target_emb, batch_emb], axis=-1)
+        
+        # project to output dimension
+        h = fnn.Dense(128)(h)
+        h = fnn.gelu(h)
+        h = fnn.Dense(self.out_dim)(h)
+        
+        return h
