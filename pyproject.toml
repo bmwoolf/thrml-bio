@@ -1,7 +1,7 @@
 [project]
 name = "thrml-bio"
 version = "0.1.0"
-description = "Add your description here"
+description = "energy-based modeling on Arc Virtual Cell perturbation dataset"
 readme = "README.md"
 authors = [
     { name = "Bradley Woolf", email = "bradleymwoolf@gmail.com" }
@@ -19,10 +19,3 @@ dependencies = [
     "torch>=2.9.0",
     "tqdm>=4.67.1",
 ]
-
-[project.scripts]
-thrml-bio = "thrml_bio:main"
-
-[build-system]
-requires = ["uv_build>=0.8.17,<0.9.0"]
-build-backend = "uv_build"
