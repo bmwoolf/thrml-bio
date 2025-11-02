@@ -105,7 +105,7 @@ def save_test_metrics(run_dir: Path, test_mse: float, test_pcc: float):
     """save final test metrics to JSON"""
     test_path = run_dir / "test_metrics.json"
     test_path.write_text(json.dumps({
-        "mse": test_mse,
-        "pcc": test_pcc
+        "mse": float(test_mse),
+        "pcc": float(test_pcc)
     }, indent=2))
 
