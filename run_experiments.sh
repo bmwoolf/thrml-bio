@@ -5,7 +5,7 @@
 set -e  # exit on error
 
 # configuration
-EPOCHS=30
+EPOCHS=1000
 BATCH_SIZE=256
 LR=0.001
 GIBBS_STEPS=5
