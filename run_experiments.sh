@@ -5,7 +5,7 @@
 set -e  # exit on error
 
 # configuration
-EPOCHS=1000
+EPOCHS=10
 BATCH_SIZE=256
 LR=0.001
 GIBBS_STEPS=5
@@ -58,12 +58,36 @@ echo ""
 echo "=========================================="
 echo "training experiments complete"
 echo ""
-echo "generate benchmark visualizations:"
-echo "   python benchmarks/convergance_curve.py --benchmarks benchmarks --outdir reports/figures"
-echo "   python benchmarks/model_accuracy.py --benchmarks benchmarks --outdir reports/figures"
-echo "   python benchmarks/energy_efficiency_curve.py --benchmarks benchmarks --outdir reports/figures"
+echo "generating visualizations..."
+echo "=========================================="
+
+# benchmark visualizations
 echo ""
-echo "generate 3D visualizations:"
-echo "   python benchmarks/gene_expression_surface.py --artifacts artifacts/potts --split test --outdir reports/figures"
-echo "   python benchmarks/energy_landscape.py --checkpoint benchmarks/potts_ebm_jax/model_checkpoint.pkl --outdir reports/figures"
-echo "   python benchmarks/energy_landscape.py --checkpoint benchmarks/potts_ebm_thrml/model_checkpoint.pkl --outdir reports/figures"
+echo "creating convergence curves..."
+python benchmarks/convergance_curve.py --benchmarks benchmarks --outdir reports/figures
+
+echo ""
+echo "creating model accuracy comparison..."
+python benchmarks/model_accuracy.py --benchmarks benchmarks --outdir reports/figures
+
+echo ""
+echo "creating energy efficiency curves..."
+python benchmarks/energy_efficiency_curve.py --benchmarks benchmarks --outdir reports/figures
+
+# 3D visualizations
+echo ""
+echo "creating gene expression surface..."
+python benchmarks/gene_expression_surface.py --artifacts artifacts/potts --split test --outdir reports/figures
+
+echo ""
+echo "creating energy landscape (JAX)..."
+python benchmarks/energy_landscape.py --checkpoint benchmarks/potts_ebm_jax/model_checkpoint.pkl --outdir reports/figures
+
+echo ""
+echo "creating energy landscape (thrml)..."
+python benchmarks/energy_landscape.py --checkpoint benchmarks/potts_ebm_thrml/model_checkpoint.pkl --outdir reports/figures
+
+echo ""
+echo "=========================================="
+echo "all visualizations saved to reports/figures/"
+echo "=========================================="
