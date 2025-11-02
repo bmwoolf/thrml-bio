@@ -36,6 +36,10 @@ def potts_gibbs_block(params, model_apply, x_init, p_emb, block_size=64, steps=5
         # safer path: call model once to get h_p and J via a small helper:
         return x, None
 
+    # convert x_init to float32 for computation, preserve dtype for output
+    input_dtype = x_init.dtype
+    x_init_float = x_init.astype(jnp.float32)
+    
     # for brevity (and to keep this light), use a simple *full* coordinate pass each step:
     def full_pass(x, _):
         # recompute h_p and J using params names (works with our PottsEBM)
@@ -58,5 +62,5 @@ def potts_gibbs_block(params, model_apply, x_init, p_emb, block_size=64, steps=5
         x_new = (best - 1).astype(jnp.float32)           # map to -1,0,1
         return x_new, None
 
-    x_final, _ = jax.lax.scan(full_pass, x_init, None, length=steps)
-    return x_final
+    x_final, _ = jax.lax.scan(full_pass, x_init_float, None, length=steps)
+    return x_final.astype(input_dtype)
