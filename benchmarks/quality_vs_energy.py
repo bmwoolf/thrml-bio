@@ -1,7 +1,7 @@
 """
 Computes and visualizes model accuracy metrics on held-out test sets
 
-Compares architectures (Potts/Gaussian/MLP) on quality, independent of hardware
+Compares architectures (Potts/MLP) on quality, independent of hardware
 
 Shows bars for test MSE and PCC when available
 """

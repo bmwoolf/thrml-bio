@@ -1,6 +1,6 @@
 #!/bin/bash
-# training script for all 4 model benchmarks
-# trains Potts EBM (JAX + thrml), Gaussian EBM (JAX only), and MLP baseline (PyTorch)
+# training script for all 3 model benchmarks
+# trains Potts EBM (JAX + thrml) and MLP baseline (PyTorch)
 
 set -e  # exit on error
 
@@ -8,16 +8,15 @@ set -e  # exit on error
 EPOCHS=30
 BATCH_SIZE=256
 LR=0.001
-LANGEVIN_STEPS=5
-STEP_SIZE=0.05
+GIBBS_STEPS=5
 BLOCK_SIZE=64
 
-echo "starting 4 model training experiments"
+echo "starting 3 model training experiments"
 echo "=========================================="
 
 # 1 Potts EBM with JAX backend
 echo ""
-echo "[1/4] training Potts EBM (JAX backend)"
+echo "[1/3] training Potts EBM (JAX backend)"
 echo "warning: Potts EBM training loop needs full implementation"
 # python src/train.py \
 #     --mode potts \
@@ -27,12 +26,12 @@ echo "warning: Potts EBM training loop needs full implementation"
 #     --epochs $EPOCHS \
 #     --batch_size $BATCH_SIZE \
 #     --lr $LR \
-#     --langevin_steps $LANGEVIN_STEPS \
+#     --gibbs_steps $GIBBS_STEPS \
 #     --block_size $BLOCK_SIZE
 
 # 2 Potts EBM with thrml backend
 echo ""
-echo "[2/4] training Potts EBM (thrml backend)"
+echo "[2/3] training Potts EBM (thrml backend)"
 echo "warning: Potts EBM training loop needs full implementation"
 # python src/train.py \
 #     --mode potts \
@@ -42,31 +41,16 @@ echo "warning: Potts EBM training loop needs full implementation"
 #     --epochs $EPOCHS \
 #     --batch_size $BATCH_SIZE \
 #     --lr $LR \
-#     --langevin_steps $LANGEVIN_STEPS \
+#     --gibbs_steps $GIBBS_STEPS \
 #     --block_size $BLOCK_SIZE
 
-# 3 Gaussian EBM with JAX backend (thrml doesn't support continuous models)
+# 3 MLP baseline with PyTorch
 echo ""
-echo "[3/4] training Gaussian EBM (JAX backend)"
-echo "warning: Gaussian EBM training loop needs full implementation"
-# python src/train.py \
-#     --mode gaussian \
-#     --backend jax \
-#     --artifacts artifacts/gaussian \
-#     --run_dir benchmarks/gaussian_ebm_jax \
-#     --epochs $EPOCHS \
-#     --batch_size $BATCH_SIZE \
-#     --lr $LR \
-#     --langevin_steps $LANGEVIN_STEPS \
-#     --step_size $STEP_SIZE
-
-# 4 MLP baseline with PyTorch
-echo ""
-echo "[4/4] training MLP baseline (PyTorch)"
+echo "[3/3] training MLP baseline (PyTorch)"
 python src/train.py \
     --mode mlp \
     --backend torch \
-    --artifacts artifacts/gaussian \
+    --artifacts artifacts/potts \
     --run_dir benchmarks/mlp_baseline_torch \
     --epochs $EPOCHS \
     --batch_size $BATCH_SIZE \

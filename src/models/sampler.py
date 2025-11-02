@@ -1,39 +1,13 @@
 """
 Sampling algorithms for energy-based models
 
-Implements Langevin dynamics for Gaussian EBMs (continuous) and block
-Gibbs sampling for Potts EBMs (discrete)
+Implements block Gibbs sampling for Potts EBMs (discrete)
 
 We use these samplers for persistent contrastive divergence (PCD) training 
 and inference
 """
 import jax
 import jax.numpy as jnp
-
-
-# Langevin PCD for Gaussian EBM
-def langevin_pcd_apply(params, model_apply, x_init, p_emb, steps=5, step_size=0.05, rng=None):
-    """
-    Gaussian EBM PCD with Euler–Maruyama updates.
-    x_{t+1} = x_t - s * ∇_x E(x_t|p) + sqrt(2s) * ξ
-    """
-    if rng is None:
-        rng = jax.random.PRNGKey(0)
-
-    def one_step(carry, _):
-        key, x = carry
-        key, k = jax.random.split(key)
-        # grad wrt x
-        def energy_wrt_x(x_):
-            E = model_apply({'params': params}, x_, p_emb)  # [B]
-            return jnp.sum(E)
-        grad = jax.grad(energy_wrt_x)(x)
-        noise = jax.random.normal(k, x.shape) * jnp.sqrt(2.0 * step_size)
-        x_next = x - step_size * grad + noise
-        return (key, x_next), None
-
-    (_, x_final), _ = jax.lax.scan(one_step, (rng, x_init), None, length=steps)
-    return x_final
 
 
 # Blocked Gibbs sampling for Potts EBM

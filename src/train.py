@@ -1,7 +1,7 @@
 """
 training loops and utilities for energy-based models
 
-implements training functions for Gaussian and Potts EBMs using persistent
+implements training functions for Potts EBMs using persistent
 contrastive divergence (PCD), plus PyTorch MLP baseline for comparison
 includes JAX/Flax training state management and optimizer integration
 """
@@ -14,11 +14,10 @@ from flax.training.train_state import TrainState
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from models.encoders import PerturbEncoder
-from models.jax.gaussian import GaussianEBM as GaussianEBM_JAX
 from models.jax.potts import PottsEBM as PottsEBM_JAX
 from models.thrml.potts import PottsEBMThrml, thrml_potts_sampler
 from models.mlp import ConditionalMLP
-from models.sampler import langevin_pcd_apply, potts_gibbs_block
+from models.sampler import potts_gibbs_block
 
 
 # helper: compute Pearson correlation coefficient
@@ -71,31 +70,6 @@ def make_train_state(rng, model, tx, sample_x, sample_p):
     return TrainState.create(apply_fn=model.apply, params=params, tx=tx)
 
 
-# train epoch for Gaussian EBM
-def train_epoch_gaussian(state, enc_apply, enc_params, model, batch_iter, sampler, steps=5, step_size=0.05):
-    @jax.jit
-    def loss_fn(params, x_pos, p_emb):
-        E_pos = model.apply({'params': params}, x_pos, p_emb)  # [B]
-        x_init = x_pos  # PCD init at data (can cache chains)
-        x_neg  = sampler(params, model.apply, x_init, p_emb, steps=steps, step_size=step_size)
-        E_neg = model.apply({'params': params}, x_neg, p_emb)
-        loss = jnp.mean(E_pos) - jnp.mean(E_neg)
-        return loss
-
-    @jax.jit
-    def step(state, x_pos, p):
-        p_emb = enc_apply({'params': enc_params}, **p)
-        grads = jax.grad(lambda prm: loss_fn(prm, x_pos, p_emb))(state.params)
-        state = state.apply_gradients(grads=grads)
-        return state
-
-    for batch in batch_iter:
-        x = batch['x']          # [B,G] float32
-        p = batch['p']          # dict of ids (target_id, batch_id, ...)
-        state = step(state, x, p)
-    return state
-
-
 # train epoch for Potts EBM
 def train_epoch_potts(state, enc_apply, enc_params, model, batch_iter, sampler, steps=5, block_size=64):
     """PCD with block Gibbs for Potts x in {-1,0,1}"""
@@ -119,14 +93,6 @@ def train_epoch_potts(state, enc_apply, enc_params, model, batch_iter, sampler, 
         p = batch['p']          # dict of ids (target_id, batch_id, etc)
         state = step(state, x, p)
     return state
-
-
-# predict mean for Gaussian EBM
-def predict_mu(enc_apply, enc_params, model_apply, model_params, p):
-    p_emb = enc_apply({'params': enc_params}, **p)
-    # TODO: for Gaussian mu = Dense(p_emb)
-    # TODO: for reporting PCC/MSE on val/test call model pieces or add a helper
-    return p_emb
 
 
 # train MLP baseline (non-EBM)
@@ -243,12 +209,12 @@ def train_mlp_baseline(artifacts_dir, run_dir, epochs=30, batch_size=256, lr=1e-
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description="train energy-based models with benchmarking")
-    ap.add_argument("--mode", choices=["gaussian", "potts", "mlp"], required=True,
+    ap.add_argument("--mode", choices=["potts", "mlp"], required=True,
                     help="model type to train")
     ap.add_argument("--backend", choices=["jax", "thrml", "torch"], default="jax",
                     help="backend: jax (pure JAX/Flax), thrml (thrml library), torch (PyTorch)")
     ap.add_argument("--artifacts", required=True,
-                    help="path to preprocessed artifacts directory (eg artifacts/gaussian)")
+                    help="path to preprocessed artifacts directory (eg artifacts/potts)")
     ap.add_argument("--run_dir", required=True,
                     help="output directory for this run (eg benchmarks/mlp_baseline_torch)")
     ap.add_argument("--epochs", type=int, default=30,
@@ -261,10 +227,8 @@ if __name__ == "__main__":
                     help="use balanced sampling for imbalanced datasets")
     
     # EBM-specific args
-    ap.add_argument("--langevin_steps", type=int, default=5,
-                    help="number of Langevin/Gibbs steps for EBM sampling")
-    ap.add_argument("--step_size", type=float, default=0.05,
-                    help="Langevin step size (for Gaussian EBM)")
+    ap.add_argument("--gibbs_steps", type=int, default=5,
+                    help="number of Gibbs steps for EBM sampling")
     ap.add_argument("--block_size", type=int, default=64,
                     help="block size for Gibbs sampling (for Potts EBM)")
     
@@ -281,16 +245,6 @@ if __name__ == "__main__":
             lr=args.lr,
             balance=args.balance
         )
-    elif args.mode == "gaussian":
-        if args.backend == "thrml":
-            print("error: Gaussian EBM only supports JAX backend (thrml is for discrete models)")
-            print("    use --backend jax for Gaussian EBM")
-        else:
-            print("warning: Gaussian EBM (JAX) training not yet fully implemented with benchmarking")
-            print("    model and sampler are ready, need to wire up full training loop")
-            model_class = GaussianEBM_JAX
-            sampler = langevin_pcd_apply
-            # TODO: implement full training loop with benchmarking using train_epoch_gaussian()
     else:  # potts
         print(f"warning: Potts EBM ({args.backend}) training not yet fully implemented with benchmarking")
         print("    model and sampler are ready, need to wire up full training loop")

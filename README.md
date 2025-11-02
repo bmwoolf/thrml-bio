@@ -2,7 +2,7 @@
 
 # thrml-bio
 
-Energy-based modeling on the **Arc Virtual Cell** perturbation dataset, set up to compare a conventional GPU run to an energy-based (thrml) simulator. We train Potts-style/Gaussian EBMs on post-perturbation gene expression and evaluate convergence, accuracy, and efficiency. We also train a standard `torch` MLP on the GPU to test baseline.
+Energy-based modeling on the **Arc Virtual Cell** perturbation dataset, set up to compare a conventional GPU run to an energy-based (thrml) simulator. We train Potts-style EBMs on post-perturbation gene expression and evaluate convergence, accuracy, and efficiency. We also train a standard `torch` MLP on the GPU to test baseline.
 
 
 ## Requirements
@@ -23,20 +23,10 @@ source .venv/bin/activate
 
 ## Preprocessing commands
 ```bash
-# Gaussian
-python -m src.data.preprocess \
-  --input path/to/arc.h5ad \      # fill out with your path to data
-  --outdir artifacts/gaussian \
-  --mode gaussian \
-  --n_hvg 2000 \
-  --target_key target_gene \
-  --batch_key batch
-
 # Potts
 python -m src.data.preprocess \
   --input path/to/arc.h5ad \      # fill out with your path to data
   --outdir artifacts/potts \
-  --mode potts \
   --tau 0.8 \
   --n_hvg 2000 \
   --target_key target_gene \

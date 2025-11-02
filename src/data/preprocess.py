@@ -3,8 +3,8 @@ Data preprocessing pipeline for perturbation experiments
 
 Converts h5ad single-cell RNA-seq data to model-ready tensors
 
-Handles HVG selection, normalization, z-scoring, and optional ternarization
-for Gaussian or Potts models 
+Handles HVG selection, normalization, z-scoring, and ternarization
+for Potts models 
 
 Creates train/val/test splits and encodes perturbation conditions
 """
@@ -75,8 +75,7 @@ def ternarize(Z, tau=0.8):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True)                  # path/to/arc.h5ad
-    ap.add_argument("--outdir", required=True)                 # artifacts/gaussian|potts
-    ap.add_argument("--mode", choices=["gaussian","potts"], default="gaussian")
+    ap.add_argument("--outdir", required=True)                 # artifacts/potts
     ap.add_argument("--n_hvg", type=int, default=2000)
     ap.add_argument("--batch_key", default="batch")
     ap.add_argument("--target_key", default="target_gene")
@@ -121,13 +120,9 @@ def main():
     # clip extreme z-scores to [-8, 8] for numerical stability
     Z = np.clip(Z, -8, 8)
 
-    # 5) Potts vs Gaussian
-    if args.mode == "potts":
-        Xout = ternarize(Z, tau=args.tau)  # int8 {-1,0,1}
-        x_dtype = "int8"
-    else:
-        Xout = Z                            # float32
-        x_dtype = "float32"
+    # 5) Ternarize for Potts model
+    Xout = ternarize(Z, tau=args.tau)  # int8 {-1,0,1}
+    x_dtype = "int8"
 
     # 6) conditions (encodings for f(p))
     df = pd.DataFrame({
@@ -154,7 +149,7 @@ def main():
     (out / "vocab.json").write_text(json.dumps(cats, indent=2))
     (out / "splits.json").write_text(json.dumps(splits, indent=2))
     (out / "preprocess_meta.json").write_text(json.dumps({
-        "mode": args.mode,
+        "mode": "potts",
         "n_cells": int(Xout.shape[0]),
         "n_genes": int(Xout.shape[1]),
         "hvg_count": len(hvgs),
@@ -163,7 +158,7 @@ def main():
         "x_dtype": x_dtype
     }, indent=2))
 
-    print(f"✔ Preprocessed → {out} | shape: {Xout.shape} | mode={args.mode}")
+    print(f"✔ Preprocessed → {out} | shape: {Xout.shape} | mode=potts")
 
 if __name__ == "__main__":
     main()
