@@ -38,3 +38,18 @@ python -m src.data.preprocess \
 
 ## Training
 ...WIP
+
+
+## Visualizations 
+```bash
+# gene expression surface
+python benchmarks/gene_expression_surface.py \
+  --artifacts artifacts/potts \
+  --split test \
+  --outdir reports/figures
+
+# potts energy landscape
+python benchmarks/energy_landscape.py \
+  --checkpoint benchmarks/potts_ebm_jax/model_checkpoint.pkl \
+  --outdir reports/figures
+```
