@@ -13,3 +13,4 @@ STYLE & CODE CONVENTIONS
 - python identifiers must use snake_case for this repo (override pep8-naming as needed)
 - when pushing code, commit each file individually with descriptions of changes in <=7 words, all lowercase, except for names/products
 - clean up and remove all temporary scripts/.md files
+- if making code changes, test before committing and pushing
