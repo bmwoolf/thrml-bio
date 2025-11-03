@@ -54,7 +54,7 @@ python src/train.py \
     --lr $LR \
     --gibbs_steps $GIBBS_STEPS_THRML \
     --block_size $BLOCK_SIZE \
-    --max_genes_thrml 100
+    --max_genes_thrml 2000
 
 
 echo ""
