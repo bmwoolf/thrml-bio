@@ -140,13 +140,23 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
         
         rng = ckpt['rng']
         enc_params = ckpt['enc_params']
-        state = ckpt['state']
         start_epoch = ckpt['epoch'] + 1
         n_genes = ckpt['config']['n_genes']
         
         # recreate model and encoder
         encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
         model = model_class(n_genes=n_genes, cond_dim=64)
+        
+        # recreate TrainState from saved params and opt_state
+        sample_x = jnp.zeros((1, n_genes))
+        sample_p = jnp.zeros((1, 64))
+        tx = optax.adam(lr)
+        state = TrainState.create(
+            apply_fn=model.apply,
+            params=ckpt['model_params'],
+            tx=tx
+        )
+        state = state.replace(opt_state=ckpt['opt_state'])
         
         print(f"resuming from epoch {start_epoch}/{epochs}")
     else:
@@ -244,10 +254,11 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
         append_metrics_csv(csv_path, ep, val_mse, val_pcc, epoch_time)
         print(f"[Epoch {ep}/{epochs}] val_mse={val_mse:.6f} | val_pcc={val_pcc:.4f} | time={epoch_time:.2f}s")
         
-        # save checkpoint after each epoch
+        # save checkpoint after each epoch (save params and opt_state separately, not full state)
         checkpoint = {
             'epoch': ep,
-            'state': state,
+            'model_params': state.params,
+            'opt_state': state.opt_state,
             'enc_params': enc_params,
             'rng': rng,
             'config': {
