@@ -144,27 +144,33 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
             ckpt = None
         
         if ckpt is not None:
-            rng = ckpt['rng']
-            enc_params = ckpt['enc_params']
-            start_epoch = ckpt['epoch'] + 1
-            n_genes = ckpt['config']['n_genes']
-            
-            # recreate model and encoder
-            encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
-            model = model_class(n_genes=n_genes, cond_dim=64)
-            
-            # recreate TrainState from saved params and opt_state
-            sample_x = jnp.zeros((1, n_genes))
-            sample_p = jnp.zeros((1, 64))
-            tx = optax.adam(lr)
-            state = TrainState.create(
-                apply_fn=model.apply,
-                params=ckpt['model_params'],
-                tx=tx
-            )
-            state = state.replace(opt_state=ckpt['opt_state'])
-            
-            print(f"resuming from epoch {start_epoch}/{epochs}")
+            ckpt_n_genes = ckpt['config']['n_genes']
+            # check if checkpoint matches current config
+            if ckpt_n_genes != n_genes:
+                print(f"  checkpoint has {ckpt_n_genes} genes but current config has {n_genes}")
+                print(f"  starting fresh (checkpoint incompatible)")
+                ckpt = None
+            else:
+                rng = ckpt['rng']
+                enc_params = ckpt['enc_params']
+                start_epoch = ckpt['epoch'] + 1
+                
+                # recreate model and encoder
+                encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
+                model = model_class(n_genes=n_genes, cond_dim=64)
+                
+                # recreate TrainState from saved params and opt_state
+                sample_x = jnp.zeros((1, n_genes))
+                sample_p = jnp.zeros((1, 64))
+                tx = optax.adam(lr)
+                state = TrainState.create(
+                    apply_fn=model.apply,
+                    params=ckpt['model_params'],
+                    tx=tx
+                )
+                state = state.replace(opt_state=ckpt['opt_state'])
+                
+                print(f"resuming from epoch {start_epoch}/{epochs}")
         else:
             # checkpoint was corrupted, initialize from scratch
             rng = jax.random.PRNGKey(42)
