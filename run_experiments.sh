@@ -28,7 +28,7 @@ python src/train.py \
     --gibbs_steps $GIBBS_STEPS \
     --block_size $BLOCK_SIZE
 
-# 2 Potts EBM with thrml backend
+# 2 Potts EBM with thrml backend (subsamples to 100 genes)
 echo ""
 echo "[2/3] training Potts EBM (thrml backend)"
 python src/train.py \
@@ -40,7 +40,8 @@ python src/train.py \
     --batch_size $BATCH_SIZE \
     --lr $LR \
     --gibbs_steps $GIBBS_STEPS \
-    --block_size $BLOCK_SIZE
+    --block_size $BLOCK_SIZE \
+    --max_genes_thrml 100
 
 # 3 MLP baseline with PyTorch
 echo ""

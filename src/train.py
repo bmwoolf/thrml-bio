@@ -65,11 +65,12 @@ def train_epoch_potts(state, enc_apply, enc_params, model, batch_iter, sampler, 
 
 # full training loop for Potts EBM
 def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size=256, lr=1e-3, 
-                    gibbs_steps=5, block_size=64, balance=False):
+                    gibbs_steps=5, block_size=64, balance=False, max_genes_thrml=100):
     """
     train Potts EBM with either JAX or thrml backend
     
     uses persistent contrastive divergence (PCD) with block Gibbs sampling
+    for thrml backend, subsamples to max_genes_thrml to avoid edge explosion
     """
     print(f"\nTraining Potts EBM ({backend} backend)")
     print("=" * 60)
@@ -93,6 +94,17 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
     X = tensors["X"].numpy()  # convert to numpy for JAX
     target_id = conds["target_id"].numpy()
     batch_id = conds["batch_id"].numpy()
+    
+    # for thrml: subsample genes to avoid edge explosion
+    if backend == "thrml" and X.shape[1] > max_genes_thrml:
+        print(f"thrml backend: subsampling {X.shape[1]} genes -> {max_genes_thrml} genes")
+        # select top N most variable genes
+        gene_var = np.var(X, axis=0)
+        top_gene_idx = np.argsort(gene_var)[-max_genes_thrml:]
+        X = X[:, top_gene_idx]
+        print(f"selected top {max_genes_thrml} most variable genes")
+        n_edges = max_genes_thrml * (max_genes_thrml - 1) // 2
+        print(f"graph will have {n_edges:,} edges")
     
     # train/val/test splits
     splits = json.loads((artifacts_dir / "splits.json").read_text())
@@ -381,6 +393,8 @@ if __name__ == "__main__":
                     help="number of Gibbs steps for EBM sampling")
     ap.add_argument("--block_size", type=int, default=64,
                     help="block size for Gibbs sampling (for Potts EBM)")
+    ap.add_argument("--max_genes_thrml", type=int, default=100,
+                    help="max genes for thrml backend (subsamples if larger)")
     
     args = ap.parse_args()
     
@@ -408,5 +422,6 @@ if __name__ == "__main__":
             lr=args.lr,
             gibbs_steps=args.gibbs_steps,
             block_size=args.block_size,
-            balance=args.balance
+            balance=args.balance,
+            max_genes_thrml=args.max_genes_thrml
         )
