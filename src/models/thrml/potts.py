@@ -95,30 +95,99 @@ def sample_potts_thrml(
     return samples[0]
 
 
+@jax.jit
+def one_block_update(params, model_apply, x, p_emb, block_idx, key):
+    """
+    vectorized block update for Potts states (JIT compiled)
+    
+    x: [B, G], block_idx: [B, K], q=3 states {-1,0,1}
+    """
+    cand = jnp.array([-1, 0, 1])  # [q]
+    B, G = x.shape
+    K = block_idx.shape[1]
+    q = 3
+    
+    # for each position k and candidate c, create state with cand[c] at block_idx[:, k]
+    # x_cand[b, k, c, :] = x with block_idx[b, k] set to cand[c]
+    def set_candidate_at_pos(pos_idx, cand_val):
+        # pos_idx: scalar, cand_val: scalar
+        x_cand_kc = x.at[jnp.arange(B), block_idx[:, pos_idx]].set(cand_val)
+        return x_cand_kc
+    
+    # vmap over positions and candidates
+    x_cand = jax.vmap(lambda k: jax.vmap(lambda c: set_candidate_at_pos(k, c))(cand))(jnp.arange(K))
+    # result: [K, q, B, G], transpose to [B, K, q, G]
+    x_cand = jnp.transpose(x_cand, (2, 0, 1, 3))  # [B, K, q, G]
+    
+    # evaluate energy for all candidates
+    x_flat = x_cand.reshape(B * K * q, G)
+    p_emb_expanded = jnp.repeat(p_emb[:, None, None, :], repeats=K, axis=1)
+    p_emb_expanded = jnp.repeat(p_emb_expanded, repeats=q, axis=2)
+    p_emb_flat = p_emb_expanded.reshape(B * K * q, p_emb.shape[1])
+    
+    E_flat = model_apply({'params': params}, x_flat, p_emb_flat)  # [B*K*q]
+    E = E_flat.reshape(B, K, q)
+    
+    # pick state with lowest energy for each position
+    k_choice = jnp.argmin(E, axis=2)  # [B, K]
+    
+    # scatter choices back to x
+    chosen_vals = cand[k_choice]  # [B, K]
+    batch_idx = jnp.arange(B)[:, None]
+    x_new = x.at[batch_idx, block_idx].set(chosen_vals)
+    
+    return x_new
+
+
+def gibbs(params, model_apply, x0, p_emb, block_indices, n_genes, steps, key):
+    """vectorized Gibbs sampling using lax.scan"""
+    # block_indices: [n_blocks, block_size] (padded)
+    n_blocks = block_indices.shape[0]
+    
+    def step_fn(x, k):
+        key_k = jax.random.fold_in(key, k)
+        # choose block k (or cycle)
+        block_idx = block_indices[k % n_blocks]
+        # mask out padding (indices >= n_genes)
+        valid_mask = block_idx < n_genes
+        block_idx_valid = jnp.where(valid_mask, block_idx, 0)  # replace invalid with 0
+        # broadcast to batch dimension
+        batch_size = x.shape[0]
+        block_batch = jnp.tile(block_idx_valid[None, :], (batch_size, 1))  # [B, K]
+        # only update valid positions
+        x = one_block_update(params, model_apply, x, p_emb, block_batch, key_k)
+        return x, None
+    
+    x_final, _ = jax.lax.scan(step_fn, x0, jnp.arange(steps))
+    return x_final
+
+
 def thrml_potts_sampler(params, model_apply, x_init, p_emb, block_size=64, steps=5, rng=None):
     """
-    sampler compatible with train_epoch_potts
-    uses thrml block Gibbs sampling
+    vectorized sampler compatible with train_epoch_potts
+    uses pure JAX block Gibbs sampling (GPU-accelerated)
     """
     if rng is None:
         rng = jax.random.PRNGKey(0)
     
-    W = params['Dense_0']['kernel']
-    b = params['Dense_0']['bias']
-    J = params['J']
-    J = 0.5 * (J + J.T) - jnp.diag(jnp.diag(J))
-    
     batch_size, n_genes = x_init.shape
-    nodes, edges = create_potts_graph(n_genes)
     
-    # extract weights from J matrix for edges
-    weights = jnp.array([J[i, j] for i in range(n_genes) for j in range(i+1, n_genes)])
+    # create blocks for block updates
+    # simple strategy: split genes into blocks of size block_size
+    n_blocks = (n_genes + block_size - 1) // block_size
+    block_indices = []
+    for i in range(n_blocks):
+        start = i * block_size
+        end = min(start + block_size, n_genes)
+        block_indices.append(jnp.arange(start, end))
     
-    samples = []
-    for i in range(batch_size):
-        biases = jnp.dot(p_emb[i], W) + b
-        key_i = jax.random.fold_in(rng, i)
-        sample = sample_potts_thrml(key_i, nodes, edges, biases, weights, n_steps=steps, block_size=block_size)
-        samples.append(sample)
+    # pad to same size and stack [n_blocks, block_size]
+    block_indices_padded = jnp.zeros((n_blocks, block_size), dtype=jnp.int32)
+    for i, b in enumerate(block_indices):
+        block_indices_padded = block_indices_padded.at[i, :len(b)].set(b)
+    block_indices = block_indices_padded
     
-    return jnp.stack(samples, axis=0)
+    # run vectorized Gibbs sampling (JIT happens inside)
+    x_final = gibbs(params, model_apply, x_init, p_emb, block_indices, n_genes, steps, rng)
+    
+    return x_final

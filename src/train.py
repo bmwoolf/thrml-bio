@@ -219,15 +219,16 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
                 }
             }
     
-    # evaluation function
-    def evaluate(indices):
+    # evaluation function (optimized: fewer steps, smaller batches)
+    def evaluate(indices, eval_gibbs_steps=2, eval_batch_size=64):
         """compute MSE and PCC by sampling from EBM and comparing to actual data"""
         all_preds = []
         all_targets = []
         
         eval_rng = jax.random.PRNGKey(12345)
         
-        for batch in batch_generator(indices, batch_size, shuffle=False):
+        # use smaller batches for evaluation
+        for batch in batch_generator(indices, eval_batch_size, shuffle=False):
             x_actual = batch['x']
             p_emb = encoder.apply({'params': enc_params}, **batch['p'])
             
@@ -242,7 +243,7 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
                 x_init,
                 p_emb,
                 block_size=block_size,
-                steps=gibbs_steps,
+                steps=eval_gibbs_steps,  # fewer steps for faster eval
                 rng=sample_rng
             )
             
