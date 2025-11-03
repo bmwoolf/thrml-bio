@@ -15,3 +15,4 @@ STYLE & CODE CONVENTIONS
 - clean up and remove all temporary scripts/.md files
 - if making code changes, test before committing and pushing
 - never suggest skipping something if i deem it necessary to investigate. solve root cause problems by asking 'why' until arriving that the specific cause that is resulting in the undesirable effect
+- leave imports at the top of each file, rather than importing at the function level
