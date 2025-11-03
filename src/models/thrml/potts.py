@@ -95,10 +95,9 @@ def sample_potts_thrml(
     return samples[0]
 
 
-@jax.jit
 def one_block_update(params, model_apply, x, p_emb, block_idx, key):
     """
-    vectorized block update for Potts states (JIT compiled)
+    vectorized block update for Potts states
     
     x: [B, G], block_idx: [B, K], q=3 states {-1,0,1}
     """
@@ -140,7 +139,7 @@ def one_block_update(params, model_apply, x, p_emb, block_idx, key):
 
 
 def gibbs(params, model_apply, x0, p_emb, block_indices, n_genes, steps, key):
-    """vectorized Gibbs sampling using lax.scan"""
+    """vectorized Gibbs sampling using lax.scan (JIT happens at call site)"""
     # block_indices: [n_blocks, block_size] (padded)
     n_blocks = block_indices.shape[0]
     
