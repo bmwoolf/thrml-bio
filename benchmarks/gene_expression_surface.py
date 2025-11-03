@@ -5,10 +5,11 @@ creates 3D surface plot showing expression values across samples and genes
 downsamples for visualization, uses colormap for expression levels
 """
 import argparse, json
-from pathlib import Path
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+
+from pathlib import Path
 from mpl_toolkits.mplot3d import Axes3D
 
 

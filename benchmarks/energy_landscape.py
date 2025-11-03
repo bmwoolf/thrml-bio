@@ -5,12 +5,13 @@ creates 3D surface plot showing energy values across state space
 uses PCA to reduce gene dimensions to 2D for visualization
 """
 import argparse, pickle
-from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import jax
 import jax.numpy as jnp
+
+from pathlib import Path
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def load_potts_model(checkpoint_path):

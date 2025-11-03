@@ -6,11 +6,12 @@ Compares architectures (Potts/MLP) on quality, independent of hardware
 Shows bars for test MSE and PCC when available
 """
 
-from __future__ import annotations
 import argparse, json, csv
-from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+
+from __future__ import annotations
+from pathlib import Path
 
 def load_test_metrics(run_dir: Path):
     j = run_dir / "test_metrics.json"

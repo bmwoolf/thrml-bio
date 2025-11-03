@@ -4,10 +4,11 @@ utility functions for training and benchmarking
 includes GPU verification, metrics tracking, and helper functions
 """
 import sys, os, csv, json
-from pathlib import Path
 import numpy as np
 import torch
 import jax
+
+from pathlib import Path
 
 
 # GPU detection and configuration

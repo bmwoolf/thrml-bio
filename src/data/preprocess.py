@@ -9,12 +9,13 @@ for Potts models
 Creates train/val/test splits and encodes perturbation conditions
 """
 import argparse, json
-from pathlib import Path
 import numpy as np
 import torch
 import scanpy as sc
 import anndata as ad
 import pandas as pd
+
+from pathlib import Path
 
 
 # select highly variable genes

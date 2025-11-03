@@ -5,7 +5,7 @@ implements training functions for Potts EBMs using persistent
 contrastive divergence (PCD), plus PyTorch MLP baseline for comparison
 includes JAX/Flax training state management and optimizer integration
 """
-import time, json
+import time, json, pickle
 from pathlib import Path
 import numpy as np
 import torch, torch.nn as nn
@@ -21,7 +21,7 @@ from utils import (
     append_metrics_csv, 
     save_test_metrics
 )
-from models.encoders import PerturbEncoder
+from models.encoders import PerturbEncoder, PerturbEncoderJAX
 from models.jax.potts import PottsEBM as PottsEBM_JAX
 from models.thrml.potts import PottsEBMThrml, thrml_potts_sampler
 from models.mlp import ConditionalMLP
@@ -129,27 +129,47 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
         sampler = potts_gibbs_block
         print("Using JAX Potts EBM with block Gibbs sampler")
     
-    # initialize models
-    rng = jax.random.PRNGKey(42)
-    rng, enc_rng, model_rng = jax.random.split(rng, 3)
+    # check for existing checkpoint to resume
+    checkpoint_path = run_dir / "checkpoint_latest.pkl"
+    start_epoch = 1
     
-    # encoder for conditions
-    from models.encoders import PerturbEncoderJAX
-    encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
-    sample_t = jnp.array([0])
-    sample_b = jnp.array([0])
-    enc_params = encoder.init(enc_rng, target_id=sample_t, batch_id=sample_b)['params']
-    
-    # Potts model
-    model = model_class(n_genes=n_genes, cond_dim=64)
-    sample_x = jnp.zeros((1, n_genes))
-    sample_p = jnp.zeros((1, 64))
-    
-    # create optimizer and training state
-    tx = optax.adam(lr)
-    state = make_train_state(model_rng, model, tx, sample_x, sample_p)
-    
-    print(f"Model initialized with {sum(x.size for x in jax.tree_util.tree_leaves(state.params))} parameters")
+    if checkpoint_path.exists():
+        print(f"found checkpoint at {checkpoint_path}, resuming...")
+        with open(checkpoint_path, 'rb') as f:
+            ckpt = pickle.load(f)
+        
+        rng = ckpt['rng']
+        enc_params = ckpt['enc_params']
+        state = ckpt['state']
+        start_epoch = ckpt['epoch'] + 1
+        n_genes = ckpt['config']['n_genes']
+        
+        # recreate model and encoder
+        encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
+        model = model_class(n_genes=n_genes, cond_dim=64)
+        
+        print(f"resuming from epoch {start_epoch}/{epochs}")
+    else:
+        # initialize models from scratch
+        rng = jax.random.PRNGKey(42)
+        rng, enc_rng, model_rng = jax.random.split(rng, 3)
+        
+        # encoder for conditions
+        encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
+        sample_t = jnp.array([0])
+        sample_b = jnp.array([0])
+        enc_params = encoder.init(enc_rng, target_id=sample_t, batch_id=sample_b)['params']
+        
+        # Potts model
+        model = model_class(n_genes=n_genes, cond_dim=64)
+        sample_x = jnp.zeros((1, n_genes))
+        sample_p = jnp.zeros((1, 64))
+        
+        # create optimizer and training state
+        tx = optax.adam(lr)
+        state = make_train_state(model_rng, model, tx, sample_x, sample_p)
+        
+        print(f"Model initialized with {sum(x.size for x in jax.tree_util.tree_leaves(state.params))} parameters")
     
     # create data iterator
     def batch_generator(indices, batch_size, shuffle=True):
@@ -197,7 +217,7 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
     print(f"\nStarting training for {epochs} epochs...")
     print("=" * 60)
     
-    for ep in range(1, epochs + 1):
+    for ep in range(start_epoch, epochs + 1):
         epoch_start = time.time()
         
         # train one epoch
@@ -223,6 +243,25 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
         # log metrics
         append_metrics_csv(csv_path, ep, val_mse, val_pcc, epoch_time)
         print(f"[Epoch {ep}/{epochs}] val_mse={val_mse:.6f} | val_pcc={val_pcc:.4f} | time={epoch_time:.2f}s")
+        
+        # save checkpoint after each epoch
+        checkpoint = {
+            'epoch': ep,
+            'state': state,
+            'enc_params': enc_params,
+            'rng': rng,
+            'config': {
+                'n_genes': n_genes,
+                'n_targets': n_targets,
+                'n_batches': n_batches,
+                'backend': backend,
+                'gibbs_steps': gibbs_steps,
+                'block_size': block_size
+            }
+        }
+        with open(checkpoint_path, 'wb') as f:
+            pickle.dump(checkpoint, f)
+        print(f"  checkpoint saved to {checkpoint_path}")
     
     # evaluate on test set
     test_mse, test_pcc = evaluate(test_idx)
@@ -243,7 +282,6 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
         }
     }
     
-    import pickle
     with open(run_dir / "model_checkpoint.pkl", 'wb') as f:
         pickle.dump(checkpoint, f)
     

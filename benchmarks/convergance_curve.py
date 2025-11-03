@@ -5,12 +5,13 @@ Plots validation MSE or PCC vs. training epochs for multiple runs to
 compare learning speed and stability (GPU vs thrml vs model types)
 """
 
-from __future__ import annotations
 import argparse, csv
-from pathlib import Path
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+
+from __future__ import annotations
+from pathlib import Path
 
 def load_metrics_csv(path: Path):
     rows = []

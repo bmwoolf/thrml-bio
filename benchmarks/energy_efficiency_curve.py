@@ -5,11 +5,12 @@ Used to compare the physical efficiency of GPU vs thrml when
 reaching equivalent performance levels
 """
 
-from __future__ import annotations
 import argparse, csv
-from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+
+from pathlib import Path
+from __future__ import annotations
 
 def load_metrics(path: Path):
     data = []

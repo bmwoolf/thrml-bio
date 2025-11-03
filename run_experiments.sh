@@ -14,9 +14,21 @@ BLOCK_SIZE=64
 echo "starting 3 model training experiments"
 echo "=========================================="
 
-# 1 Potts EBM with JAX backend
+# 1 MLP baseline with PyTorch
 echo ""
-echo "[1/3] training Potts EBM (JAX backend)"
+echo "[1/3] training MLP baseline (PyTorch)"
+python src/train.py \
+    --mode mlp \
+    --backend torch \
+    --artifacts artifacts/potts \
+    --run_dir benchmarks/mlp_baseline_torch \
+    --epochs $EPOCHS \
+    --batch_size $BATCH_SIZE \
+    --lr $LR
+
+# 2 Potts EBM with JAX backend
+echo ""
+echo "[2/3] training Potts EBM (JAX backend)"
 python src/train.py \
     --mode potts \
     --backend jax \
@@ -28,9 +40,9 @@ python src/train.py \
     --gibbs_steps $GIBBS_STEPS \
     --block_size $BLOCK_SIZE
 
-# 2 Potts EBM with thrml backend (subsamples to 100 genes)
+# 3 Potts EBM with thrml backend (subsamples to 100 genes)
 echo ""
-echo "[2/3] training Potts EBM (thrml backend)"
+echo "[3/3] training Potts EBM (thrml backend)"
 python src/train.py \
     --mode potts \
     --backend thrml \
@@ -43,17 +55,6 @@ python src/train.py \
     --block_size $BLOCK_SIZE \
     --max_genes_thrml 100
 
-# 3 MLP baseline with PyTorch
-echo ""
-echo "[3/3] training MLP baseline (PyTorch)"
-python src/train.py \
-    --mode mlp \
-    --backend torch \
-    --artifacts artifacts/potts \
-    --run_dir benchmarks/mlp_baseline_torch \
-    --epochs $EPOCHS \
-    --batch_size $BATCH_SIZE \
-    --lr $LR
 
 echo ""
 echo "=========================================="

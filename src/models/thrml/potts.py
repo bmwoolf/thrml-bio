@@ -7,6 +7,7 @@ on ternary gene expression states {-1, 0, 1}
 import jax
 import jax.numpy as jnp
 import flax.linen as nn
+
 from thrml import SpinNode, Block, SamplingSchedule, sample_states
 from thrml.models import IsingEBM, IsingSamplingProgram, hinton_init
 from typing import List, Tuple
