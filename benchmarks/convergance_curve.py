@@ -61,4 +61,11 @@ def main():
     plt.ylabel(ylabel)
     plt.title("Training Convergence")
     plt.legend(frameon=False)
-    plt.grid
+    plt.grid(True, alpha=0.3)
+    outpath = outdir / f"convergance_curve_{args.metric}.png"
+    plt.savefig(outpath, dpi=150, bbox_inches="tight")
+    print(f"Saved {outpath}")
+    plt.close()
+
+if __name__ == "__main__":
+    main()
