@@ -130,8 +130,8 @@ def one_block_update(params, model_apply, x, p_emb, block_idx, key):
     # pick state with lowest energy for each position
     k_choice = jnp.argmin(E, axis=2)  # [B, K]
     
-    # scatter choices back to x
-    chosen_vals = cand[k_choice]  # [B, K]
+    # scatter choices back to x (match dtype)
+    chosen_vals = cand[k_choice].astype(x.dtype)  # [B, K]
     batch_idx = jnp.arange(B)[:, None]
     x_new = x.at[batch_idx, block_idx].set(chosen_vals)
     

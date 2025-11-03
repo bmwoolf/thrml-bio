@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Visualizes training convergence for energy-based models.
 
@@ -9,8 +10,6 @@ import argparse, csv
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-
-from __future__ import annotations
 from pathlib import Path
 
 def load_metrics_csv(path: Path):
