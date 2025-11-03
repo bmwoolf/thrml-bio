@@ -135,30 +135,54 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
     
     if checkpoint_path.exists():
         print(f"found checkpoint at {checkpoint_path}, resuming...")
-        with open(checkpoint_path, 'rb') as f:
-            ckpt = pickle.load(f)
+        try:
+            with open(checkpoint_path, 'rb') as f:
+                ckpt = pickle.load(f)
+        except (EOFError, pickle.UnpicklingError) as e:
+            print(f"  checkpoint corrupted ({e}), starting fresh")
+            checkpoint_path.unlink()
+            ckpt = None
         
-        rng = ckpt['rng']
-        enc_params = ckpt['enc_params']
-        start_epoch = ckpt['epoch'] + 1
-        n_genes = ckpt['config']['n_genes']
-        
-        # recreate model and encoder
-        encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
-        model = model_class(n_genes=n_genes, cond_dim=64)
-        
-        # recreate TrainState from saved params and opt_state
-        sample_x = jnp.zeros((1, n_genes))
-        sample_p = jnp.zeros((1, 64))
-        tx = optax.adam(lr)
-        state = TrainState.create(
-            apply_fn=model.apply,
-            params=ckpt['model_params'],
-            tx=tx
-        )
-        state = state.replace(opt_state=ckpt['opt_state'])
-        
-        print(f"resuming from epoch {start_epoch}/{epochs}")
+        if ckpt is not None:
+            rng = ckpt['rng']
+            enc_params = ckpt['enc_params']
+            start_epoch = ckpt['epoch'] + 1
+            n_genes = ckpt['config']['n_genes']
+            
+            # recreate model and encoder
+            encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
+            model = model_class(n_genes=n_genes, cond_dim=64)
+            
+            # recreate TrainState from saved params and opt_state
+            sample_x = jnp.zeros((1, n_genes))
+            sample_p = jnp.zeros((1, 64))
+            tx = optax.adam(lr)
+            state = TrainState.create(
+                apply_fn=model.apply,
+                params=ckpt['model_params'],
+                tx=tx
+            )
+            state = state.replace(opt_state=ckpt['opt_state'])
+            
+            print(f"resuming from epoch {start_epoch}/{epochs}")
+        else:
+            # checkpoint was corrupted, initialize from scratch
+            rng = jax.random.PRNGKey(42)
+            rng, enc_rng, model_rng = jax.random.split(rng, 3)
+            
+            encoder = PerturbEncoderJAX(n_targets, n_batches, out_dim=64)
+            sample_t = jnp.array([0])
+            sample_b = jnp.array([0])
+            enc_params = encoder.init(enc_rng, target_id=sample_t, batch_id=sample_b)['params']
+            
+            model = model_class(n_genes=n_genes, cond_dim=64)
+            sample_x = jnp.zeros((1, n_genes))
+            sample_p = jnp.zeros((1, 64))
+            
+            tx = optax.adam(lr)
+            state = make_train_state(model_rng, model, tx, sample_x, sample_p)
+            
+            print(f"Model initialized with {sum(x.size for x in jax.tree_util.tree_leaves(state.params))} parameters")
     else:
         # initialize models from scratch
         rng = jax.random.PRNGKey(42)
@@ -197,23 +221,33 @@ def train_potts_ebm(artifacts_dir, run_dir, backend="jax", epochs=30, batch_size
     
     # evaluation function
     def evaluate(indices):
-        """compute MSE and PCC on validation/test set"""
+        """compute MSE and PCC by sampling from EBM and comparing to actual data"""
         all_preds = []
         all_targets = []
         
+        eval_rng = jax.random.PRNGKey(12345)
+        
         for batch in batch_generator(indices, batch_size, shuffle=False):
-            x = batch['x']
+            x_actual = batch['x']
             p_emb = encoder.apply({'params': enc_params}, **batch['p'])
             
-            # for EBM, we use energy as a proxy for likelihood
-            # lower energy = higher likelihood
-            # we'll use the negative energy as prediction
-            E = model.apply({'params': state.params}, x, p_emb)
+            # sample predictions from trained EBM
+            # initialize from zeros, then sample given conditions
+            x_init = jnp.zeros_like(x_actual)
+            eval_rng, sample_rng = jax.random.split(eval_rng)
             
-            # for now, just use the input as prediction (placeholder)
-            # proper evaluation would require sampling or energy-based prediction
-            all_preds.append(np.array(x))
-            all_targets.append(np.array(x))
+            x_pred = sampler(
+                state.params,
+                model.apply,
+                x_init,
+                p_emb,
+                block_size=block_size,
+                steps=gibbs_steps,
+                rng=sample_rng
+            )
+            
+            all_preds.append(np.array(x_pred))
+            all_targets.append(np.array(x_actual))
         
         preds = np.concatenate(all_preds, axis=0)
         targets = np.concatenate(all_targets, axis=0)
